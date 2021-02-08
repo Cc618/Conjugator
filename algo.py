@@ -2,6 +2,7 @@
 
 import random
 import torch as T
+import torch.nn.functional as F
 import torch.distributions as D
 from tqdm import tqdm
 import dataset
@@ -33,11 +34,22 @@ class Config:
         self.device = T.device('cpu')
 
 
+class Trainer:
+    def __init__(self, create_opti, criterion=F.cross_entropy):
+        '''
+        Training only data
+        - create_opti(algo, net) : Returns the optimizer
+        '''
+        self.create_opti = create_opti
+        self.criterion = criterion
+
+
 # TODO : seed
 class Algo:
-    def __init__(self, conf, model):
+    def __init__(self, conf, model, trainer):
         self.conf = conf
         self.model = model
+        self.trainer = trainer
 
         # Load dataset
         if self.conf.dataset is None:
@@ -71,7 +83,8 @@ class Algo:
                     self.conf.tok_pad
                 )
 
-        model.create(self)
+        self.model.create(self)
+        self.trainer.opti = self.trainer.create_opti(net, self)
 
     def iter_data(self):
         '''
@@ -113,15 +126,14 @@ class Algo:
         bar = tqdm(range(self.conf.epochs))
         for _ in bar:
             for b, (keys, values) in enumerate(self.iter_data()):
-                print(keys.shape)
-                print(values.shape)
-                # print(keys)
-                # print(values)
-                print(self.tensor2str(values[:, 0]))
+                logits = self.model.predict(keys, self)
+                loss = algo.trainer.criterion(logits, values)
 
-                loss = self.model.train(keys, values)
+                self.trainer.opti.zero_grad()
+                loss.backward()
+                self.trainer.opti.step()
 
-                bar.set_postfix({ 'batch': b, 'loss': f'{loss:.2f}' })
+                bar.set_postfix({ 'batch': b, 'loss': f'{loss.item():.2f}' })
 
 
 class Model:
@@ -133,19 +145,18 @@ class Model:
     - create_net(algo) : Builds and returns the network (see net for details)
     - create_opti(net) : Builds and returns the optimizer
     '''
-    def train(self, key, value):
+    def predict(self, key, value, algo):
         '''
         Trains the network, see Algo.iter_batch for details about key / value
-        - Returns the loss (float)
+        - Returns logits of the categorical distribution
         '''
-        pass
 
     def create(self, algo):
         net = self.create_net(algo).to(algo.conf.device)
 
 
 class RNN(Model):
-    def __init__(self, create_net, create_opti):
+    def __init__(self, create_net):
         '''
         Recurrent network (LSTM / GRU)
         - net : Must contains a init_hidden(n_batch, device) function.
@@ -154,7 +165,9 @@ class RNN(Model):
         super().__init__()
 
         self.create_net = create_net
-        self.create_opti = create_opti
 
-    def train(self, key, value):
-        return 42
+    def predict(self, value, algo):
+        hidden = self.net.init_hidden(key.size(1), algo.conf.device)
+        logits, hidden = self.net(key)
+
+        return logits
