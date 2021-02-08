@@ -4,15 +4,10 @@ import random
 import json
 
 
-path = 'dataset.json'
-
-
-def load():
+def load(path):
     '''
     Loads the dataset
     '''
-    global path
-
     # Parse json
     with open(path) as f:
         return json.load(f)
@@ -24,7 +19,7 @@ def filter_data(data, mode, tense):
     '''
     filtered_data = {}
     for v in data:
-        filtered_data[v] = data[v][target_mode][target_tense]
+        filtered_data[v] = data[v][mode][tense]
 
     return filtered_data
 
@@ -37,9 +32,9 @@ def get_voc(data):
     # Find all possible tokens
     voc_keys = set()
     voc_values = set()
-    for v in filtered_data:
+    for v in data:
         voc_keys |= set(v)
-        for item in filtered_data[v]:
+        for item in data[v]:
             voc_values |= set(item)
 
     tovoc = lambda s: ''.join(sorted(list(s)))
@@ -122,7 +117,7 @@ def iter_data(data,
 
 
 if __name__ == '__main__':
-    data = load()
+    data = load('dataset.json')
 
     ### Simple query
     # Fetch a verb
