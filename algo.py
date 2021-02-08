@@ -84,7 +84,7 @@ class Algo:
                 )
 
         self.model.create(self)
-        self.trainer.opti = self.trainer.create_opti(net, self)
+        self.trainer.opti = self.trainer.create_opti(self.model.net, self)
 
     def iter_data(self):
         '''
@@ -126,7 +126,7 @@ class Algo:
         bar = tqdm(range(self.conf.epochs))
         for _ in bar:
             for b, (keys, values) in enumerate(self.iter_data()):
-                logits = self.model.predict(keys, self)
+                logits = self.model.predict(keys, values.size(0), self)
                 loss = algo.trainer.criterion(logits, values)
 
                 self.trainer.opti.zero_grad()
@@ -152,7 +152,7 @@ class Model:
         '''
 
     def create(self, algo):
-        net = self.create_net(algo).to(algo.conf.device)
+        self.net = self.create_net(algo).to(algo.conf.device)
 
 
 class RNN(Model):
@@ -160,14 +160,27 @@ class RNN(Model):
         '''
         Recurrent network (LSTM / GRU)
         - net : Must contains a init_hidden(n_batch, device) function.
-            net.forward(x, h) returns y, h_next
+            net.encode(x, h) returns z (Encode keys), shape = [batch, latent]
+            net.decode(z, h) returns y (Logits, decode latent from net.encode),
+                shape = [seq, batch, embed]
         '''
         super().__init__()
 
         self.create_net = create_net
 
-    def predict(self, value, algo):
-        hidden = self.net.init_hidden(key.size(1), algo.conf.device)
-        logits, hidden = self.net(key)
+    def predict(self, key, value, algo):
+        # Encode
+        key = self.net.embed(key)
+        z, _ = self.net.encode(key, self.net.encode.init_hidden(key.size(1),
+                algo.conf.device))
+
+        # Decode
+        logits = T.empty([value.size(0), key.size(1), key.size(2)])
+        decode_hidden = self.net.decode.init_hidden(key.size(1),
+                algo.conf.device)
+
+        for i in range(value_size):
+            # TODO : Encode not used
+            logits[i], _ = self.net.decode(values[i], decode_hidden)
 
         return logits
