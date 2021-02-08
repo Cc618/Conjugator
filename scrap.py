@@ -1,3 +1,5 @@
+# Used to fetch data from the web
+
 import requests
 import json
 from bs4 import BeautifulSoup, Tag
