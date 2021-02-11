@@ -125,15 +125,22 @@ class Algo:
         print('# Training')
         bar = tqdm(range(self.conf.epochs))
         for _ in bar:
-            for b, (keys, values) in enumerate(self.iter_data()):
-                logits = self.model.predict(keys, values.size(0), self)
-                loss = algo.trainer.criterion(logits, values)
+            avg_loss = 0
+            n_batch = 0
+            for keys, values in self.iter_data():
+                avg_loss += self.model.train(keys, values, self)
+                n_batch += 1
 
-                self.trainer.opti.zero_grad()
-                loss.backward()
-                self.trainer.opti.step()
+                # TODO : Use train
+                # logits = self.model.predict(keys, values.size(0), self)
+                # loss = algo.trainer.criterion(logits, values)
 
-                bar.set_postfix({ 'batch': b, 'loss': f'{loss.item():.2f}' })
+                # self.trainer.opti.zero_grad()
+                # loss.backward()
+                # self.trainer.opti.step()
+
+            avg_loss /= n_batch
+            bar.set_postfix({ 'loss': f'{avg_loss:.2f}' })
 
 
 class Model:
@@ -145,6 +152,8 @@ class Model:
     - create_net(algo) : Builds and returns the network (see net for details)
     - create_opti(net) : Builds and returns the optimizer
     '''
+
+    # TODO : Update to train
     def predict(self, key, value, algo):
         '''
         Trains the network, see Algo.iter_batch for details about key / value
@@ -155,6 +164,7 @@ class Model:
         self.net = self.create_net(algo).to(algo.conf.device)
 
 
+# TODO : WIP
 class RNN(Model):
     def __init__(self, create_net):
         '''
@@ -184,3 +194,40 @@ class RNN(Model):
             logits[i], _ = self.net.decode(values[i], decode_hidden)
 
         return logits
+
+
+class Transformer(Model):
+    def __init__(self, create_net):
+        '''
+        Transformer Encoder Decoder (T-ED) model
+        '''
+        super().__init__()
+
+        self.create_net = create_net
+
+    def train(self, key, value, algo):
+        # TODO : Device
+        self.net.train()
+
+        value_src = value[:-1]
+        value_tgt = value[1:]
+
+        logits = self.net(key, value_src)
+
+        # TODO : Verify
+        logits = logits.view(-1, logits.size(-1))
+        value_tgt = value_tgt.reshape(-1)
+
+        # print('---')
+        # print(logits.shape, value_tgt.shape)
+
+        # Verify logits not probs
+        loss = algo.trainer.criterion(logits, value_tgt)
+
+        algo.trainer.opti.zero_grad()
+        loss.backward()
+
+        # TODO : Clip grad
+        algo.trainer.opti.step()
+
+        return loss.item()
