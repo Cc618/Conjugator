@@ -29,9 +29,7 @@ class Config:
         # TODO : Useful ?
         self.encoder_seq_len = 32
         self.decoder_seq_len = 64
-        # TODO : CUDA
-        # self.device = T.device('cuda' if T.cuda.is_available() else 'cpu')
-        self.device = T.device('cpu')
+        self.device = T.device('cuda' if T.cuda.is_available() else 'cpu')
 
 
 class Trainer:
@@ -107,12 +105,12 @@ class Algo:
                 end_tok_keys=[self.conf.tok_end_index],
                 end_tok_values=[self.conf.tok_end_index],
                 batch_size=self.conf.batch_size):
-            keys = T.stack([T.LongTensor(k, device=self.conf.device)
+            keys = T.stack([T.LongTensor(k).to(self.conf.device)
                     for k in keys])
 
             # Choose a conjugation at random
-            values = T.stack([T.LongTensor(v[random.randint(0, len(v) - 1)],
-                    device=self.conf.device) for v in values])
+            values = T.stack([T.LongTensor(v[random.randint(0, len(v) - 1)])
+                .to(self.conf.device) for v in values])
 
             yield keys.transpose(0, 1), values.transpose(0, 1)
 
@@ -128,16 +126,11 @@ class Algo:
             avg_loss = 0
             n_batch = 0
             for keys, values in self.iter_data():
+                keys = keys.to(self.conf.device)
+                values = values.to(self.conf.device)
+
                 avg_loss += self.model.train(keys, values, self)
                 n_batch += 1
-
-                # TODO : Use train
-                # logits = self.model.predict(keys, values.size(0), self)
-                # loss = algo.trainer.criterion(logits, values)
-
-                # self.trainer.opti.zero_grad()
-                # loss.backward()
-                # self.trainer.opti.step()
 
             avg_loss /= n_batch
             bar.set_postfix({ 'loss': f'{avg_loss:.2f}' })
@@ -217,9 +210,6 @@ class Transformer(Model):
         # TODO : Verify
         logits = logits.view(-1, logits.size(-1))
         value_tgt = value_tgt.reshape(-1)
-
-        # print('---')
-        # print(logits.shape, value_tgt.shape)
 
         # Verify logits not probs
         loss = algo.trainer.criterion(logits, value_tgt)

@@ -45,7 +45,8 @@ class TransformerNet(nn.Module):
         # print(src.shape, tgt.shape)
 
         # TODO : Bake mask
-        mask = self.transformer.generate_square_subsequent_mask(tgt.size(0))
+        mask = self.transformer.generate_square_subsequent_mask(tgt.size(0)) \
+                .to(src.device)
         y = self.transformer(src, tgt, tgt_mask=mask)
         # print(y.shape)
 
@@ -98,7 +99,7 @@ def create_adam(net, algo):
 if __name__ == '__main__':
     conf = Config()
     conf.kind = 'transformer'
-    conf.epochs = 100
+    conf.epochs = 300
 
     net = Transformer(create_transformer)
     trainer = Trainer(create_adam)
@@ -116,8 +117,10 @@ if __name__ == '__main__':
 
         out_key = key
         out = start
-        key = T.LongTensor([conf.voc.index(c) for c in key]).unsqueeze(1)
-        start = T.LongTensor([conf.voc.index(c) for c in start]).unsqueeze(1)
+        key = T.LongTensor([conf.voc.index(c) for c in key]).unsqueeze(1) \
+                .to(conf.device)
+        start = T.LongTensor([conf.voc.index(c) for c in start]).unsqueeze(1) \
+                .to(conf.device)
 
         for _ in range(max_seq_len):
             logits = algo.model.net(key, start)[-1].squeeze()
@@ -130,5 +133,5 @@ if __name__ == '__main__':
             start = T.cat([start, token.view(1, 1)])
             out += pred
 
-        print(f'Input : "{out_key}"')
+        print(f'\nInput : "{out_key}"')
         print(f'Output : "{out}"')
