@@ -116,6 +116,17 @@ def iter_data(data,
         yield batch_keys, batch_values
 
 
+def split(data, ratio):
+    '''
+    Splits into training and testing data the dataset
+    - Returns test, train
+    '''
+    n_train = int(len(data) * ratio)
+    i = list(data.items())
+
+    return dict(i[:n_train]), dict(i[n_train:])
+
+
 if __name__ == '__main__':
     data = load('dataset.json')
 

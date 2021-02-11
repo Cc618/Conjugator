@@ -16,6 +16,7 @@ class Config:
         # IO
         self.dataset_path = 'dataset.json'
         self.dataset = None
+        self.dataset_split = .1
         self.voc = None
         self.tok_start = '^'
         self.tok_end = '$'
@@ -51,12 +52,14 @@ class Algo:
 
         # Load dataset
         if self.conf.dataset is None:
+            # Load dataset
             self.conf.dataset = dataset.filter_data(
                     dataset.load(conf.dataset_path),
                     'Indicatif', 'Présent'
                 )
             self.conf.voc = dataset.get_voc(self.conf.dataset)[0]
 
+            # Add special token
             assert self.conf.tok_start not in self.conf.voc, (
                     f'Found start token within the vocabulary ({voc})'
                 )
@@ -81,12 +84,18 @@ class Algo:
                     self.conf.tok_pad
                 )
 
+            # Split test data
+            self.conf.dataset_test, self.conf.dataset = dataset.split(
+                    self.conf.dataset, self.conf.dataset_split
+                )
+
         self.model.create(self)
         self.trainer.opti = self.trainer.create_opti(self.model.net, self)
 
-    def iter_data(self):
+    def iter_data(self, training=True):
         '''
         Iterates through the dataset (returns tensors)
+        - training : True if using training set
         - Yields a batch of keys, values pair such that keys contains
             tense names and values one conjugation
         * Shapes are [seq_len, batch]
@@ -95,7 +104,7 @@ class Algo:
         # Vocabulary for both keys and values is the same (this allows same
         # embedding)
         for keys, values in dataset.iter_data(
-                self.conf.dataset,
+                self.conf.dataset if training else self.conf.dataset_test,
                 voc_keys=self.conf.voc,
                 voc_values=self.conf.voc,
                 pad_tok_keys=[self.conf.tok_pad_index],
@@ -133,7 +142,25 @@ class Algo:
                 n_batch += 1
 
             avg_loss /= n_batch
-            bar.set_postfix({ 'loss': f'{avg_loss:.2f}' })
+            tst_loss = self.eval()
+
+            bar.set_postfix({
+                    'loss': f'{avg_loss:.2f}',
+                    'test_loss': f'{tst_loss:.2f}'
+                })
+
+    def eval(self):
+        with T.no_grad():
+            avg_loss = 0
+            n_batch = 0
+            for keys, values in self.iter_data():
+                keys = keys.to(self.conf.device)
+                values = values.to(self.conf.device)
+
+                avg_loss += self.model.eval(keys, values, self)
+                n_batch += 1
+
+            return avg_loss / n_batch
 
 
 class Model:
@@ -199,7 +226,6 @@ class Transformer(Model):
         self.create_net = create_net
 
     def train(self, key, value, algo):
-        # TODO : Device
         self.net.train()
 
         value_src = value[:-1]
@@ -221,3 +247,16 @@ class Transformer(Model):
         algo.trainer.opti.step()
 
         return loss.item()
+
+    def eval(self, key, value, algo):
+        self.net.eval()
+
+        value_src = value[:-1]
+        value_tgt = value[1:]
+
+        logits = self.net(key, value_src)
+
+        logits = logits.view(-1, logits.size(-1))
+        value_tgt = value_tgt.reshape(-1)
+
+        return algo.trainer.criterion(logits, value_tgt)
