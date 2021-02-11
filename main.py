@@ -39,21 +39,15 @@ class TransformerNet(nn.Module):
         - tgt : Beginning of the generated sentence
         - Returns logits
         '''
-        # print(src.shape, tgt.shape)
         src = self.embed(src)
         tgt = self.embed(tgt)
-        # print(src.shape, tgt.shape)
 
         # TODO : Bake mask
         mask = self.transformer.generate_square_subsequent_mask(tgt.size(0)) \
                 .to(src.device)
         y = self.transformer(src, tgt, tgt_mask=mask)
-        # print(y.shape)
 
-        # Shape is now [seq, batch, embed]
-        # We want [seq, batch, probs]
         y = self.fc(y)
-        # print(y.shape)
 
         return y
 
@@ -73,18 +67,13 @@ class PosEmbedding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # return self.dropout(self.pe[:x.size(0), :]).squeeze(0)
-        # print(x.shape, self.pe.shape)
-        # TODO : Works with batches ?
-        x = x + self.pe[:x.size(0), :]
-
-        return self.dropout(x)
+        return self.dropout(x + self.pe[:x.size(0), :])
 
 
 def create_transformer(algo):
     return TransformerNet(
             len(algo.conf.voc),
-            64,
+            32,
             512,
             3,
             64
@@ -99,7 +88,7 @@ def create_adam(net, algo):
 if __name__ == '__main__':
     conf = Config()
     conf.kind = 'transformer'
-    conf.epochs = 300
+    conf.epochs = 200
 
     net = Transformer(create_transformer)
     trainer = Trainer(create_adam)
@@ -109,8 +98,8 @@ if __name__ == '__main__':
     algo.train()
 
     # TODO : mv in algo
-    keys = '^jouer$', '^aller$', '^coder$', '^rougir$'
-    starts = '^je ', '^il ', '^elles ', '^nous '
+    keys = '^jouer$', '^aller$', '^coder$', '^rougir$', '^vollir$', '^mager$'
+    starts = '^je ', '^il ', '^elles ', '^nous ', '^t', '^'
     for key, start in zip(keys, starts):
         max_seq_len = 64
         temp = 1
@@ -122,7 +111,7 @@ if __name__ == '__main__':
         start = T.LongTensor([conf.voc.index(c) for c in start]).unsqueeze(1) \
                 .to(conf.device)
 
-        for _ in range(max_seq_len):
+        while start.size(0) < max_seq_len:
             logits = algo.model.net(key, start)[-1].squeeze()
 
             token = sample_char(logits, temp=temp)

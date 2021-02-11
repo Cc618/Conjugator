@@ -139,14 +139,14 @@ class Algo:
                 values = values.to(self.conf.device)
 
                 avg_loss += self.model.train(keys, values, self)
-                n_batch += 1
+                n_batch += keys.size(1)
 
             avg_loss /= n_batch
             tst_loss = self.eval()
 
             bar.set_postfix({
-                    'loss': f'{avg_loss:.2f}',
-                    'test_loss': f'{tst_loss:.2f}'
+                    'loss': f'{avg_loss * 100:.2f}',
+                    'test_loss': f'{tst_loss * 100:.2f}'
                 })
 
     def eval(self):
@@ -158,7 +158,7 @@ class Algo:
                 values = values.to(self.conf.device)
 
                 avg_loss += self.model.eval(keys, values, self)
-                n_batch += 1
+                n_batch += keys.size(1)
 
             return avg_loss / n_batch
 
