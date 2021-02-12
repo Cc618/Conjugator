@@ -27,10 +27,9 @@ def create_adam(net, algo):
 
 if __name__ == '__main__':
     conf = Config()
-    conf.kind = 'transformer'
-    conf.epochs = 0
+    conf.epochs = 1
 
-    net = Transformer(create_transformer)
+    net = RNN(create_lstm)
     trainer = Trainer(create_adam)
 
     algo = Algo(conf, net, trainer)
@@ -51,9 +50,6 @@ if __name__ == '__main__':
             'j\''
         ]
     for key, start in zip(keys, starts):
-        max_seq_len = 64
-        temp = 1
-
         out_key = key
         out = start
         key = T.LongTensor([conf.voc.index(c) for c in key]).unsqueeze(1) \

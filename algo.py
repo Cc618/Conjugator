@@ -24,7 +24,6 @@ class Config:
         self.tok_start_index = self.tok_end_index = self.tok_pad_index = None
 
         # Net
-        self.kind = 'rnn'
         self.epochs = 2
         self.batch_size = 16
         self.max_seq_len = 64
@@ -151,6 +150,8 @@ class Algo:
             avg_loss /= n_batch
             tst_loss = self.eval()
 
+            disp_loss = avg_loss
+            disp_tst = tst_loss
 
     def eval(self):
         with T.no_grad():
@@ -290,6 +291,19 @@ class RNN(Model):
 
         return loss.item()
 
+    def pred_init(self, key, value, algo):
+        return self.net.encode(self.net.embed(key),
+                self.net.init_hidden(key.size(1), algo.conf.device)
+            )[1]
+
+    def pred_next(self, hidden, value, algo, sample_char):
+        logits, _ = self.net.decode(self.net.embed(value), hidden)
+        logits = logits[-1].squeeze()
+
+        token = sample_char(logits, algo.conf.temp, algo)
+
+        return token.view(1, 1)
+
 
 class Transformer(Model):
     def __init__(self, create_net):
@@ -338,7 +352,7 @@ class Transformer(Model):
         return key
 
     def pred_next(self, key, value, algo, sample_char):
-        logits = algo.model.net(key, value)[-1].squeeze()
+        logits = self.net(key, value)[-1].squeeze()
 
         token = sample_char(logits, algo.conf.temp, algo)
 
