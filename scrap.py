@@ -102,7 +102,7 @@ def fetch_verbs(start_verb, queries=3):
 
 path = 'dataset.json'
 start_verb = 'etre'
-max_queries = 150
+max_queries = 300
 
 # We can also use unidecode or lower to remove special chars such as accents
 # or to lowercase the string

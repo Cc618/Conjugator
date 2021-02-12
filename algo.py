@@ -131,6 +131,8 @@ class Algo:
     def train(self):
         print('# Training')
         bar = tqdm(range(self.conf.epochs))
+        disp_loss = 0
+        disp_tst = 0
         for _ in bar:
             avg_loss = 0
             n_batch = 0
@@ -141,13 +143,15 @@ class Algo:
                 avg_loss += self.model.train(keys, values, self)
                 n_batch += keys.size(1)
 
+                bar.set_postfix({
+                        'loss': f'{disp_loss * 100:.2f} %',
+                        'test_loss': f'{disp_tst * 100:.2f} %',
+                        'batch': n_batch,
+                    })
+
             avg_loss /= n_batch
             tst_loss = self.eval()
 
-            bar.set_postfix({
-                    'loss': f'{avg_loss * 100:.2f}',
-                    'test_loss': f'{tst_loss * 100:.2f}'
-                })
 
     def eval(self):
         with T.no_grad():

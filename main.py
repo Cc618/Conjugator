@@ -73,9 +73,9 @@ class PosEmbedding(nn.Module):
 def create_transformer(algo):
     return TransformerNet(
             len(algo.conf.voc),
-            32,
+            256,
             512,
-            3,
+            2,
             64
         )
 
@@ -88,7 +88,7 @@ def create_adam(net, algo):
 if __name__ == '__main__':
     conf = Config()
     conf.kind = 'transformer'
-    conf.epochs = 200
+    conf.epochs = 42
 
     net = Transformer(create_transformer)
     trainer = Trainer(create_adam)
@@ -98,8 +98,17 @@ if __name__ == '__main__':
     algo.train()
 
     # TODO : mv in algo
-    keys = '^jouer$', '^aller$', '^coder$', '^rougir$', '^vollir$', '^mager$'
-    starts = '^je ', '^il ', '^elles ', '^nous ', '^t', '^'
+    T.save(algo.model.net.state_dict(), 'model')
+    keys = [
+            '^jouer$', '^aller$', '^coder$', '^rougir$', '^vollir$', '^mager$',
+            '^déglutir$', '^praxiter$', '^poulier$', '^patriarcher$',
+            '^anticonstituer$'
+        ]
+    starts = [
+            '^je ', '^il ', '^elles ', '^nous ', '^t', '^',
+            '^ils ', '^vous ', '^je', '^tu',
+            'j\''
+        ]
     for key, start in zip(keys, starts):
         max_seq_len = 64
         temp = 1
