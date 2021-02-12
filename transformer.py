@@ -26,7 +26,6 @@ class TransformerNet(nn.Module):
         src = self.embed(src)
         tgt = self.embed(tgt)
 
-        # TODO : Bake mask
         mask = self.transformer.generate_square_subsequent_mask(tgt.size(0)) \
                 .to(src.device)
         y = self.transformer(src, tgt, tgt_mask=mask)
@@ -39,6 +38,7 @@ class TransformerNet(nn.Module):
 class PosEmbedding(nn.Module):
     def __init__(self, max_len, d_model, dropout=0.1):
         super().__init__()
+
         self.dropout = nn.Dropout(p=dropout)
 
         pe = T.zeros(max_len, d_model)
@@ -48,6 +48,7 @@ class PosEmbedding(nn.Module):
         pe[:, 0::2] = T.sin(position * div_term)
         pe[:, 1::2] = T.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
+
         self.register_buffer('pe', pe)
 
     def forward(self, x):

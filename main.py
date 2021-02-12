@@ -4,10 +4,10 @@ import torch.nn.functional as F
 import torch.distributions as D
 from algo import Config, Algo, RNN, Transformer, Trainer
 from transformer import TransformerNet, create_transformer
-from rnn import LstmNet
+from rnn import LstmNet, create_lstm
 
 
-def sample_char(logits, temp=1):
+def sample_char(logits, temp, algo):
     '''
     Samples from the categorical distribution
     - logits : Logits of the probabilities (probs before softmax)
@@ -27,10 +27,10 @@ def create_adam(net, algo):
 
 if __name__ == '__main__':
     conf = Config()
-    conf.kind = 'kind'
-    conf.epochs = 4
+    conf.kind = 'transformer'
+    conf.epochs = 0
 
-    net = RNN(create_lstm)
+    net = Transformer(create_transformer)
     trainer = Trainer(create_adam)
 
     algo = Algo(conf, net, trainer)
@@ -61,16 +61,7 @@ if __name__ == '__main__':
         start = T.LongTensor([conf.voc.index(c) for c in start]).unsqueeze(1) \
                 .to(conf.device)
 
-        while start.size(0) < max_seq_len:
-            logits = algo.model.net(key, start)[-1].squeeze()
-
-            token = sample_char(logits, temp=temp)
-            pred = conf.voc[token.item()]
-            if pred == conf.tok_end:
-                break
-
-            start = T.cat([start, token.view(1, 1)])
-            out += pred
+        out += algo.pred(key, start, sample_char)
 
         print(f'\nInput : "{out_key}"')
         print(f'Output : "{out}"')

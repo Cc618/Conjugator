@@ -27,9 +27,8 @@ class Config:
         self.kind = 'rnn'
         self.epochs = 2
         self.batch_size = 16
-        # TODO : Useful ?
-        self.encoder_seq_len = 32
-        self.decoder_seq_len = 64
+        self.max_seq_len = 64
+        self.temp = 1
         self.device = T.device('cuda' if T.cuda.is_available() else 'cpu')
 
 
@@ -166,6 +165,27 @@ class Algo:
 
             return avg_loss / n_batch
 
+    def pred(self, key, value, sample_char):
+        '''
+        Predicts what is after value given key
+        - sample_char : Functor that takes logits, temp and algo to sample
+            a token given the categorical probability distribution (its index)
+        - Returns the output string
+        '''
+        out = ''
+        hidden = self.model.pred_init(key, value, self)
+        while value.size(0) < self.conf.max_seq_len:
+            token = self.model.pred_next(hidden, value, self, sample_char)
+
+            pred = self.conf.voc[token.item()]
+            if pred == self.conf.tok_end:
+                break
+
+            value = T.cat([value, token.view(1, 1)])
+            out += pred
+
+        return out
+
 
 class Model:
     '''
@@ -177,18 +197,37 @@ class Model:
     - create_opti(net) : Builds and returns the optimizer
     '''
 
-    # TODO : Update to train
-    def predict(self, key, value, algo):
+    def train(self, key, value, algo):
         '''
         Trains the network, see Algo.iter_batch for details about key / value
-        - Returns logits of the categorical distribution
+        - Returns the loss value for this batch
+        '''
+
+    def eval(self, key, value, algo):
+        '''
+        Like train but doesn't update weights
+        - Returns the loss value for this batch
         '''
 
     def create(self, algo):
         self.net = self.create_net(algo).to(algo.conf.device)
 
+    def pred_init(self, key, value, algo):
+        '''
+        Inits a prediction
+        - Returns None if no init required, custom data otherwise
+        '''
 
-# TODO : WIP
+    def pred_next(self, init, value, algo, sample_char):
+        '''
+        Next prediction
+        - init : Data from pred_init
+        - sample_char : Functor that takes logits, temp and algo to sample
+            a token given the categorical probability distribution (its index)
+        - Returns the next token index (shape of [1, 1])
+        '''
+
+
 class RNN(Model):
     def __init__(self, create_net):
         '''
@@ -202,22 +241,54 @@ class RNN(Model):
 
         self.create_net = create_net
 
-    def predict(self, key, value, algo):
+    def train(self, key, value, algo):
+        self.net.train()
+
         # Encode
         key = self.net.embed(key)
-        z, _ = self.net.encode(key, self.net.encode.init_hidden(key.size(1),
-                algo.conf.device))
+        _, z = self.net.encode(
+                key,
+                self.net.init_hidden(key.size(1), algo.conf.device)
+            )
 
         # Decode
-        logits = T.empty([value.size(0), key.size(1), key.size(2)])
-        decode_hidden = self.net.decode.init_hidden(key.size(1),
-                algo.conf.device)
+        value_src = self.net.embed(value[:-1])
+        logits, _ = self.net.decode(value_src, z)
 
-        for i in range(value_size):
-            # TODO : Encode not used
-            logits[i], _ = self.net.decode(values[i], decode_hidden)
+        logits = logits.view(-1, logits.size(-1))
+        value_tgt = value[:-1].reshape(-1)
 
-        return logits
+        loss = algo.trainer.criterion(logits, value_tgt)
+
+        # Optimize
+        algo.trainer.opti.zero_grad()
+        loss.backward()
+
+        # TODO : Clip grad
+        algo.trainer.opti.step()
+
+        return loss.item()
+
+    def eval(self, key, value, algo):
+        self.net.eval()
+
+        # Encode
+        key = self.net.embed(key)
+        _, z = self.net.encode(
+                key,
+                self.net.init_hidden(key.size(1), algo.conf.device)
+            )
+
+        # Decode
+        value_src = self.net.embed(value[:-1])
+        logits, _ = self.net.decode(value_src, z)
+
+        logits = logits.view(-1, logits.size(-1))
+        value_tgt = value[:-1].reshape(-1)
+
+        loss = algo.trainer.criterion(logits, value_tgt)
+
+        return loss.item()
 
 
 class Transformer(Model):
@@ -237,11 +308,9 @@ class Transformer(Model):
 
         logits = self.net(key, value_src)
 
-        # TODO : Verify
         logits = logits.view(-1, logits.size(-1))
         value_tgt = value_tgt.reshape(-1)
 
-        # Verify logits not probs
         loss = algo.trainer.criterion(logits, value_tgt)
 
         algo.trainer.opti.zero_grad()
@@ -264,3 +333,13 @@ class Transformer(Model):
         value_tgt = value_tgt.reshape(-1)
 
         return algo.trainer.criterion(logits, value_tgt)
+
+    def pred_init(self, key, value, algo):
+        return key
+
+    def pred_next(self, key, value, algo, sample_char):
+        logits = algo.model.net(key, value)[-1].squeeze()
+
+        token = sample_char(logits, algo.conf.temp, algo)
+
+        return token.view(1, 1)

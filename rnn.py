@@ -3,80 +3,49 @@ import torch.nn.functional as F
 from torch import nn, optim
 
 
-def lstm_init_hidden(n_layer, n_hidden, n_batch, device):
-        mk_hidden = lambda: T.zeros(
-                [n_layer, n_batch, n_hidden],
-                device=device)
-
-        return mk_hidden(), mk_hidden()
-
-
-class LstmEncoder(nn.Module):
-    def __init__(self, n_embed, n_latent, n_hidden, n_layer):
+# LSTMs
+class LstmBlock(nn.Module):
+    def __init__(self, n_in, n_out, n_hidden, n_layer):
+        '''
+        - n_out : Can be None to remove the last fully connected layer
+        '''
         super().__init__()
 
-        self.n_hidden = n_hidden
-        self.n_embed = n_embed
-        self.n_layer = n_layer
-
-        self.rnn = nn.LSTM(n_embed, n_hidden, n_layer)
-        self.fc = nn.Linear(n_hidden, n_latent)
-
-    def init_hidden(self, n_batch, device):
-        return lstm_init_hidden(self.n_layer, self.n_hidden, n_batch, device)
+        self.rnn = nn.LSTM(n_in, n_hidden, n_layer)
+        self.fc = None if n_out is None else nn.Linear(n_hidden, n_out)
 
     def forward(self, x, h):
-        '''
-        Returns y, h (y of shape [batch, embed])
-        '''
         y, h = self.rnn(x, h)
-        y = self.fc(y)
 
-        return y[-1], h
-
-
-class LstmDecoder(nn.Module):
-    def __init__(self, n_latent, n_token, n_hidden, n_layer):
-        super().__init__()
-
-        self.n_hidden = n_hidden
-        self.n_latent = n_latent
-        self.n_layer = n_layer
-
-        self.rnn = nn.LSTM(n_latent, n_hidden, n_layer)
-        self.fc = nn.Linear(n_hidden, n_token)
-
-    def init_hidden(self, n_batch, device):
-        return lstm_init_hidden(self.n_layer, self.n_hidden, n_batch, device)
-
-    def forward(self, x, h):
-        '''
-        Returns y, h (y of shape [seq, batch, embed])
-        '''
-        y, h = self.rnn(x, h)
-        y = self.fc(y)
+        if self.fc is not None:
+            y = self.fc(y)
 
         return y, h
 
 
 class LstmNet(nn.Module):
-    def __init__(self, n_token, n_embed, n_latent, n_hidden, n_layer):
+    def __init__(self, n_token, n_embed, n_hidden, n_layer):
         super().__init__()
 
         self.n_hidden = n_hidden
-        self.n_embed = n_embed
         self.n_layer = n_layer
 
         self.embed = nn.Embedding(n_token, n_embed)
-        self.encode = LstmEncoder(n_embed, n_latent, n_hidden, n_layer)
-        self.decode = LstmDecoder(n_latent, n_token, n_hidden, n_layer)
+        self.encode = LstmBlock(n_embed, None, n_hidden, n_layer)
+        self.decode = LstmBlock(n_embed, n_token, n_hidden, n_layer)
+
+    def init_hidden(self, n_batch, device):
+        mk_hidden = lambda: T.zeros(
+                [self.n_layer, n_batch, self.n_hidden],
+                device=device)
+
+        return mk_hidden(), mk_hidden()
 
 
 def create_lstm(algo):
     return LstmNet(
             len(algo.conf.voc),
-            32,
-            512,
+            128,
             256,
             2
         )
