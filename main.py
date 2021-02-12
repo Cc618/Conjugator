@@ -27,7 +27,8 @@ def create_adam(net, algo):
 
 if __name__ == '__main__':
     conf = Config()
-    conf.epochs = 1
+    # conf.dataset_split = .9 # TODO
+    conf.epochs = 10
 
     net = RNN(create_lstm)
     trainer = Trainer(create_adam)

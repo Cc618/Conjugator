@@ -257,7 +257,7 @@ class RNN(Model):
         logits, _ = self.net.decode(value_src, z)
 
         logits = logits.view(-1, logits.size(-1))
-        value_tgt = value[:-1].reshape(-1)
+        value_tgt = value[1:].reshape(-1)
 
         loss = algo.trainer.criterion(logits, value_tgt)
 
@@ -285,7 +285,7 @@ class RNN(Model):
         logits, _ = self.net.decode(value_src, z)
 
         logits = logits.view(-1, logits.size(-1))
-        value_tgt = value[:-1].reshape(-1)
+        value_tgt = value[1:].reshape(-1)
 
         loss = algo.trainer.criterion(logits, value_tgt)
 
