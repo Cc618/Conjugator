@@ -25,7 +25,7 @@ The model then outputs the resulting string :
 ```
 
 ## Examples
-Results using the transformer model trained with a dataset of 5k verbs for
+Results using the transformer model trained with a dataset of 5k verbs during
 about 5 minutes :
 ```
 Input : "^jouer$"
