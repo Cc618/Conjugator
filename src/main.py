@@ -27,9 +27,9 @@ def create_adam(net, algo):
 
 if __name__ == '__main__':
     conf = Config()
-    # conf.dataset_split = .9 # TODO
     conf.epochs = 10
 
+    # Use TransformerNet(create_transformer) for the transformer model
     net = RNN(create_lstm)
     trainer = Trainer(create_adam)
 
@@ -37,7 +37,6 @@ if __name__ == '__main__':
 
     algo.train()
 
-    # TODO : mv in algo
     T.save(algo.model.net.state_dict(), 'model/last')
 
     keys = [
@@ -53,11 +52,14 @@ if __name__ == '__main__':
     for key, start in zip(keys, starts):
         out_key = key
         out = start
+
+        # Convert key / start
         key = T.LongTensor([conf.voc.index(c) for c in key]).unsqueeze(1) \
                 .to(conf.device)
         start = T.LongTensor([conf.voc.index(c) for c in start]).unsqueeze(1) \
                 .to(conf.device)
 
+        # Predict
         out += algo.pred(key, start, sample_char)
 
         print(f'\nInput : "{out_key}"')
