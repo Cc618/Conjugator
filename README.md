@@ -1,7 +1,7 @@
 # Conjugator
 Conjugator is an AI capable of conjugating french verbs.
 Multiple models have been implemented,
-including RNNs and Transformers for seq2seq translation.
+including RNNs and Transformers for seq2seq translation at character level.
 
 ## How it works ?
 We give a french verb as input (start ^ and end $ tokens are then added) :
@@ -34,6 +34,12 @@ Output : "^je joue"
 Input : "^rougir$"
 Output : "^nous rougisssons"
 
+Input : "^déglutir$"
+Output : "^ils déglutissent"
+
+Input : "^poulier$"
+Output : "^je poulie"
+
 # Does not exist
 Input : "^vollir$"
 Output : "^tu volis"
@@ -42,15 +48,9 @@ Output : "^tu volis"
 Input : "^mager$"
 Output : "^tu mages"
 
-Input : "^déglutir$"
-Output : "^ils déglutissent"
-
 # Does not exist
 Input : "^praxiter$"
 Output : "^vous praxitez"
-
-Input : "^poulier$"
-Output : "^je poulie"
 
 # Does not exist
 Input : "^patriarcher$"
@@ -60,3 +60,6 @@ Output : "^tu patriarches"
 Input : "^anticonstituer$"
 Output : "j'anticonsistisre"
 ```
+
+## Dataset
+The data has been scraped on the web ([this website](https://la-conjugaison.nouvelobs.com)), use [src/scrap.py](src/scrap.py) to generate the dataset.
