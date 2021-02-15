@@ -26,29 +26,38 @@ def create_adam(net, algo):
 
 
 if __name__ == '__main__':
+    # Either train or test
+    mode = 'train'
+    save_path = 'model/last'
+
     conf = Config()
     conf.epochs = 10
 
-    # Use TransformerNet(create_transformer) for the transformer model
-    net = RNN(create_lstm)
+    # net = RNN(create_lstm)
+    net = Transformer(create_transformer)
     trainer = Trainer(create_adam)
 
     algo = Algo(conf, net, trainer)
 
-    algo.train()
+    if mode == 'train':
+        algo.train()
 
-    T.save(algo.model.net.state_dict(), 'model/last')
+        T.save(algo.model.net.state_dict(), save_path)
+    else:
+        algo.model.net.load_state_dict(T.load(save_path))
 
     keys = [
             '^jouer$', '^aller$', '^coder$', '^rougir$', '^vollir$', '^mager$',
             '^déglutir$', '^praxiter$', '^poulier$', '^patriarcher$',
             '^anticonstituer$'
         ]
+
     starts = [
             '^je ', '^il ', '^elles ', '^nous ', '^t', '^',
             '^ils ', '^vous ', '^je', '^tu',
             'j\''
         ]
+
     for key, start in zip(keys, starts):
         out_key = key
         out = start
